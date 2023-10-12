@@ -26,26 +26,25 @@ func NewPostStorage(db *sqlx.DB) PostStorage {
 	return PostStorage{db: db}
 }
 
-func (s PostStorage) Create(post *Post) error {
+func (ps PostStorage) Create(post *Post) error {
 	query := `
-	INSERT
-	INTO "posts"
+	INSERT INTO "posts"
 	("image", "title", "description")
 	VALUES ($1, $2, $3)
 	RETURNING "id", "created_at", "updated_at";
 	`
 
-	return s.db.Get(post, query, post.Image, post.Title, post.Description)
+	return ps.db.Get(post, query, post.Image, post.Title, post.Description)
 }
 
-func (s PostStorage) ReadAll() ([]*Post, error) {
+func (ps PostStorage) ReadAll() ([]*Post, error) {
 	query := `
 	SELECT "id", "image", "title", "description"
 	FROM "posts";
 	`
 
 	posts := []*Post{}
-	if err := s.db.Select(&posts, query); err != nil {
+	if err := ps.db.Select(&posts, query); err != nil {
 		return nil, err
 	}
 

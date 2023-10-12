@@ -29,7 +29,14 @@ func main() {
 		os.Exit(1)
 	}
 
+	userStorage := storage.NewUserStorage(db)
 	postStorage := storage.NewPostStorage(db)
+
+	r.Mount("/api/users", api.UsersResource{
+		ErrorHandler: eh,
+		Validate:     validate,
+		UserStorage:  userStorage,
+	}.Routes())
 
 	r.Mount("/api/posts", api.PostsResource{
 		ErrorHandler: eh,
