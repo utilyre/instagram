@@ -4,14 +4,23 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
+	"os"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-playground/validator/v10"
+	"github.com/google/uuid"
 	"github.com/utilyre/instagram/internal/auth"
 	"github.com/utilyre/instagram/internal/middleware"
 	"github.com/utilyre/instagram/internal/storage"
 	"github.com/utilyre/xmate"
+)
+
+const maxImageSize = 1 * 1024 * 1024 // 1MB
+
+var (
+	ErrNotMultipart = xmate.NewHTTPError(http.StatusBadRequest, "Content-Type not multipart/form-data")
 )
 
 type PostsResource struct {
@@ -27,10 +36,50 @@ func (pr PostsResource) Routes() chi.Router {
 
 	r.Group(func(r chi.Router) {
 		r.Use(middleware.Authenticate(pr.ErrorHandler, jwtSecret))
+		r.Post("/upload", pr.ErrorHandler.HandleFunc(pr.upload))
 		r.Post("/", pr.ErrorHandler.HandleFunc(pr.create))
 	})
 
 	return r
+}
+
+func (pr PostsResource) upload(w http.ResponseWriter, r *http.Request) error {
+	type Response struct {
+		URL string `json:"url"`
+	}
+
+	if err := r.ParseMultipartForm(maxImageSize); err != nil {
+		if errors.Is(err, http.ErrNotMultipart) {
+			return ErrNotMultipart
+		}
+
+		return err
+	}
+
+	image, _, err := r.FormFile("image")
+	if err != nil {
+		return err
+	}
+
+	if err := os.MkdirAll("./images", 0700); err != nil {
+		return err
+	}
+
+	name := uuid.New().String()
+	f, err := os.OpenFile("./images/"+name, os.O_CREATE|os.O_WRONLY, 0600)
+	if err != nil {
+		return err
+	}
+
+	if _, err := io.Copy(f, image); err != nil {
+		return err
+	}
+
+	url := *r.URL
+	url.Path = "/images/" + name
+	return xmate.WriteJSON(w, http.StatusOK, &Response{
+		URL: url.String(),
+	})
 }
 
 func (pr PostsResource) create(w http.ResponseWriter, r *http.Request) error {
