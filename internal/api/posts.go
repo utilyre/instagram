@@ -8,6 +8,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-playground/validator/v10"
+	"github.com/utilyre/instagram/internal/auth"
+	"github.com/utilyre/instagram/internal/middleware"
 	"github.com/utilyre/instagram/internal/storage"
 	"github.com/utilyre/xmate"
 )
@@ -21,8 +23,12 @@ type PostsResource struct {
 func (pr PostsResource) Routes() chi.Router {
 	r := chi.NewRouter()
 
-	r.Post("/", pr.ErrorHandler.HandleFunc(pr.create))
 	r.Get("/", pr.ErrorHandler.HandleFunc(pr.readAll))
+
+	r.Group(func(r chi.Router) {
+		r.Use(middleware.Authenticate(pr.ErrorHandler, jwtSecret))
+		r.Post("/", pr.ErrorHandler.HandleFunc(pr.create))
+	})
 
 	return r
 }
@@ -49,7 +55,9 @@ func (pr PostsResource) create(w http.ResponseWriter, r *http.Request) error {
 		return xmate.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 
+	claims := r.Context().Value(middleware.ClaimsKey{}).(*auth.Claims)
 	post := &storage.Post{
+		User:        &storage.User{ID: claims.ID},
 		Image:       params.Image,
 		Title:       params.Title,
 		Description: params.Description,
@@ -73,6 +81,7 @@ func (pr PostsResource) readAll(w http.ResponseWriter, r *http.Request) error {
 		Image       string `json:"image"`
 		Title       string `json:"title"`
 		Description string `json:"description,omitempty"`
+		Author      string `json:"author,omitempty"`
 	}
 
 	posts, err := pr.PostStorage.ReadAll()
@@ -91,6 +100,7 @@ func (pr PostsResource) readAll(w http.ResponseWriter, r *http.Request) error {
 			Image:       post.Image,
 			Title:       post.Title,
 			Description: post.Description,
+			Author:      post.User.Name,
 		})
 	}
 

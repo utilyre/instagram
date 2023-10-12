@@ -11,13 +11,11 @@ type Post struct {
 	CreatedAt time.Time `db:"created_at"`
 	UpdatedAt time.Time `db:"updated_at"`
 
-	// TODO
-	// UserID int `db:"user_id"`
-	// User   User
-
 	Image       string `db:"image"`
 	Title       string `db:"title"`
 	Description string `db:"description"`
+
+	*User `db:"user"`
 }
 
 type PostStorage struct{ db *sqlx.DB }
@@ -29,18 +27,19 @@ func NewPostStorage(db *sqlx.DB) PostStorage {
 func (ps PostStorage) Create(post *Post) error {
 	query := `
 	INSERT INTO "posts"
-	("image", "title", "description")
-	VALUES ($1, $2, $3)
+	("user_id", "image", "title", "description")
+	VALUES ($1, $2, $3, $4)
 	RETURNING "id", "created_at", "updated_at";
 	`
 
-	return ps.db.Get(post, query, post.Image, post.Title, post.Description)
+	return ps.db.Get(post, query, post.User.ID, post.Image, post.Title, post.Description)
 }
 
 func (ps PostStorage) ReadAll() ([]*Post, error) {
 	query := `
-	SELECT "id", "image", "title", "description"
-	FROM "posts";
+	SELECT "posts"."id", "posts"."image", "posts"."title", "posts"."description", "users"."name" AS "user.name"
+	FROM "posts"
+	LEFT OUTER JOIN "users" ON "posts"."user_id" = "users"."id";
 	`
 
 	posts := []*Post{}
