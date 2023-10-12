@@ -1,4 +1,5 @@
 export DATABASE_URL=user=instagram password=xxxxxxxx host=127.0.0.1 port=5432 sslmode=disable
+export JWT_SECRET=98sdfaa9sdfj
 
 run:
 	@gow -s run main.go

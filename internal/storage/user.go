@@ -46,3 +46,13 @@ func (us UserStorage) ReadAll() ([]*User, error) {
 
 	return users, nil
 }
+
+func (us UserStorage) ReadByName(user *User) error {
+	query := `
+	SELECT "id", "email", "password"
+	FROM "users"
+	WHERE "name" = $1;
+	`
+
+	return us.db.Get(user, query, user.Name)
+}
